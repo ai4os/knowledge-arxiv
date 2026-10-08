@@ -18,6 +18,7 @@ import pandas as pd
 from pymilvus import DataType, MilvusClient
 import tqdm
 
+
 load_dotenv()
 
 # Configuration constants (aligned with reference.py)

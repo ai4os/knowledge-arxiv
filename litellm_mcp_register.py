@@ -4,17 +4,15 @@ Registers the MCP in LiteLLM
 
 import os
 
-import requests
-
 from dotenv import load_dotenv
+import requests
 
 
 load_dotenv()
 
-
 MCP_NAME = "arxiv_metadata"
 MCP_DESCRIPTION = "MCP server to perform RAG on the full arXiv metadata."
-MCP_ENDPOINT = "https://mcp-arxiv-metadata-mcp.ifca-deployments.cloud.ai4eosc.eu/mcp"
+MCP_ENDPOINT = "https://mcp-arxiv-metadata.ifca-deployments.cloud.ai4eosc.eu/mcp"
 
 
 LITELLM_KEY = os.environ["LITELLM_KEY"]

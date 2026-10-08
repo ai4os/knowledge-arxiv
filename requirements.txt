@@ -6,3 +6,6 @@ python-dotenv
 pymilvus
 openai
 mcp
+httpx
+duckdb
+tqdm
