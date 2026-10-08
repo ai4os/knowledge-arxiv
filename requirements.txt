@@ -1,0 +1,8 @@
+requests
+requests-ratelimiter
+huggingface_hub
+pandas
+python-dotenv
+pymilvus
+openai
+mcp
