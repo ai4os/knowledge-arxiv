@@ -19,3 +19,9 @@ if __name__ == "__main__":
         repo_type="dataset",
         local_dir=DATA_DIR / "csic_metadata_snapshot",
     )
+
+    snapshot_download(
+        repo_id="ifca-advanced-computing/HAL-metadata-snapshot",
+        repo_type="dataset",
+        local_dir=DATA_DIR / "hal_metadata_snapshot",
+    )
