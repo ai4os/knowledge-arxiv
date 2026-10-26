@@ -37,7 +37,7 @@ from common.utils import (
 
 # Source-specific configuration constants
 COLLECTION_NAME = "hal_metadata_v1"
-DEFAULT_DATA_PATH = "data/hal_metadata_snapshot/data/*.parquet"
+DEFAULT_DATA_PATH = str(Path(__file__).resolve().parents[2] / "data/hal_metadata_snapshot/data/*.parquet")
 EUREPO_PREFIX = "info:eu-repo/semantics/"
 
 logger = setup_logging("add_milvus", silence_http_libs=True)

@@ -34,7 +34,7 @@ from common.utils import (
 
 # Source-specific configuration constants
 COLLECTION_NAME = "arxiv_metadata_v2"
-DEFAULT_DATA_PATH = "data/arxiv_metadata_snapshot/data_clean/*.parquet"
+DEFAULT_DATA_PATH = str(Path(__file__).resolve().parents[2] / "data/arxiv_metadata_snapshot/data_clean/*.parquet")
 
 logger = setup_logging("add_milvus", silence_http_libs=True)
 

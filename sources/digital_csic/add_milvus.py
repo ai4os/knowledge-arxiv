@@ -37,7 +37,7 @@ from common.utils import (
 
 # Source-specific configuration constants
 COLLECTION_NAME = "digital_csic_metadata_v1"
-DEFAULT_DATA_PATH = "data/csic_metadata_snapshot/data/*.parquet"
+DEFAULT_DATA_PATH = str(Path(__file__).resolve().parents[2] / "data/csic_metadata_snapshot/data/*.parquet")
 
 logger = setup_logging("add_milvus", silence_http_libs=True)
 
