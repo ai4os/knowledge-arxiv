@@ -17,53 +17,24 @@ We use the following entry to test the integration:
 """
 
 import asyncio
-import json
 import os
 import sys
+from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+from common.mcp_testing import extract_results
 
 load_dotenv()
 
 # Reference paper details
 TARGET_ARXIV_ID = "2210.07367"
 QUERY_TEXT = "Gravitational focusing effects on streaming dark matter as a new detection concept"
-
-
-def extract_results(call_tool_response: Any) -> list[dict[str, Any]]:
-    """Helper to extract list of dictionaries from MCP tool call content."""
-    # Check if tool execution was marked as an error
-    if getattr(call_tool_response, "isError", False):
-        error_msgs = [getattr(c, "text", str(c)) for c in getattr(call_tool_response, "content", [])]
-        print(f"❌ Tool returned error: {error_msgs}")
-        return []
-
-    # FastMCP / mcpserver may return structured data in res.data or in res.content
-    if hasattr(call_tool_response, "data") and isinstance(call_tool_response.data, list):
-        return call_tool_response.data
-
-    content_list = getattr(call_tool_response, "content", [])
-    for content in content_list:
-        text = getattr(content, "text", None)
-        if text:
-            try:
-                parsed = json.loads(text)
-                if isinstance(parsed, list):
-                    return parsed
-                if isinstance(parsed, dict):
-                    if "error" in parsed:
-                        print(f"⚠️ Server returned error: {parsed['error']}")
-                        return []
-                    return [parsed]
-            except json.JSONDecodeError:
-                pass
-
-    # If no content found or unable to parse JSON
-    print(f"🔍 Raw response content: {content_list}")
-    return []
 
 
 def assert_paper_found(results: list[dict[str, Any]], expected_id: str, test_name: str) -> None:

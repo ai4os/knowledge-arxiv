@@ -3,59 +3,34 @@ MCP server to expose arXiv metadata collection from Milvus.
 """
 
 import argparse
-import logging
 import os
-import re
+import sys
+from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-import httpx
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from mcp.server.mcpserver import MCPServer
-from openai import OpenAI
-from pymilvus import MilvusClient
 
-
-load_dotenv()
-
-# Logging configuration
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+from common.clients import get_embedding, get_milvus_client, get_openai_client
+from common.utils import (
+    escape_milvus_like,
+    normalize_iso_date,
+    sanitize_collection_name,
+    setup_logging,
 )
-logger = logging.getLogger("mcp_server")
+
+logger = setup_logging("mcp_server")
 
 # Configuration constants
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "arxiv_metadata_v2")
-EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "AI4EOSC/default-embeddings")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://vllm.cloud.ai4eosc.eu/v1")
-EMBEDDINGS_BASE_URL = os.getenv("EMBEDDINGS_BASE_URL", OPENAI_BASE_URL)
-OPENAI_API_KEY = os.getenv("LITELLM_KEY")
 
-# Initialize OpenAI client with retries
-_http_client = httpx.Client(transport=httpx.HTTPTransport(retries=3))
-openai_client = OpenAI(
-    base_url=EMBEDDINGS_BASE_URL,
-    api_key=OPENAI_API_KEY,
-    http_client=_http_client,
-)
-
-
-def get_milvus_client() -> MilvusClient:
-    """Initialize Milvus client from environment variables."""
-    milvus_uri = os.getenv("MILVUS_URI", "./milvus.db")
-    milvus_pwd = os.getenv("MILVUS_PWD")
-    milvus_user = os.getenv("MILVUS_USER", "root")
-
-    if milvus_uri.startswith("http://") or milvus_uri.startswith("https://") or ":" in milvus_uri:
-        return MilvusClient(uri=milvus_uri, user=milvus_user, password=milvus_pwd)
-    return MilvusClient(uri=milvus_uri)
-
-
+# Initialize clients
+openai_client = get_openai_client()
 milvus_client = get_milvus_client()
 
 # Ensure collection name is sanitized and load if available
-sanitized_collection_name = re.sub(r"[^a-zA-Z0-9_]", "_", COLLECTION_NAME)
+sanitized_collection_name = sanitize_collection_name(COLLECTION_NAME)
 try:
     if milvus_client.has_collection(collection_name=sanitized_collection_name):
         milvus_client.load_collection(collection_name=sanitized_collection_name)
@@ -65,23 +40,6 @@ except Exception as e:
 
 # Initialize MCP server
 mcp = MCPServer("arxiv-metadata-mcp")
-
-
-def get_embedding(text: str) -> list[float]:
-    """Generate vector embedding for the search query."""
-    response = openai_client.embeddings.create(
-        input=text,
-        model=EMBEDDINGS_MODEL,
-    )
-    return response.data[0].embedding
-
-
-def normalize_iso_date(date_str: str, is_end: bool = False) -> str:
-    """Normalize date strings (e.g. 'YYYY-MM-DD') into ISO 8601 UTC bounds."""
-    date_str = date_str.strip()
-    if len(date_str) == 10 and date_str.count("-") == 2:
-        return f"{date_str}T23:59:59Z" if is_end else f"{date_str}T00:00:00Z"
-    return date_str
 
 
 def build_filter_expression(
@@ -121,7 +79,7 @@ def build_filter_expression(
         if isinstance(categories, str):
             categories = [categories]
         cat_subclauses = [
-            f'arxiv_categories like "%{re.escape(cat.strip()).replace(chr(92), "")}%"'
+            f'arxiv_categories like "%{escape_milvus_like(cat)}%"'
             for cat in categories
             if cat and cat.strip()
         ]
@@ -133,7 +91,7 @@ def build_filter_expression(
         if isinstance(authors, str):
             authors = [authors]
         author_subclauses = [
-            f'authors like "%{re.escape(author.strip()).replace(chr(92), "")}%"'
+            f'authors like "%{escape_milvus_like(author)}%"'
             for author in authors
             if author and author.strip()
         ]
@@ -181,7 +139,7 @@ def search(
         authors=authors,
     )
 
-    embedding = get_embedding(query)
+    embedding = get_embedding(openai_client, query)
 
     search_params: dict[str, Any] = {
         "collection_name": target_collection,

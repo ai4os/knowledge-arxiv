@@ -5,62 +5,38 @@ Reference implementation adapted from reference.py with schema including `arxiv_
 
 import datetime
 from email.utils import parsedate_to_datetime
-import logging
-import os
-import re
+import sys
+from pathlib import Path
 import time
 from typing import Any, List, Optional, Tuple
 
-from dotenv import load_dotenv
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import duckdb
-from openai import OpenAI
 import pandas as pd
 from pymilvus import DataType, MilvusClient
 import tqdm
 
+from common.clients import (
+    BATCH_SIZE,
+    EMBEDDINGS_MODEL,
+    EMBEDDINGS_SIZE,
+    MAX_TEXT_LENGTH,
+    get_milvus_client,
+    get_openai_client,
+)
+from common.utils import (
+    ensure_vector_index,
+    get_existing_ids,
+    sanitize_collection_name,
+    setup_logging,
+)
 
-load_dotenv()
-
-# Configuration constants (aligned with reference.py)
-EMBEDDINGS_SIZE = 2560  # specific to Qwen3-Embeddings-4B
-MAX_TEXT_LENGTH = 8192  # Safe byte length for title + authors + abstract
-BATCH_SIZE = 10  # batch size for computing embeddings in OpenAI API calls
-EMBEDDINGS_MODEL = "AI4EOSC/default-embeddings"
+# Source-specific configuration constants
 COLLECTION_NAME = "arxiv_metadata_v2"
 DEFAULT_DATA_PATH = "data/arxiv_metadata_snapshot/data_clean/*.parquet"
 
-# Disable verbose HTTP logs from all underlying libraries
-for lib in ("httpx", "httpcore", "openai", "urllib3"):
-    logging.getLogger(lib).setLevel(logging.WARNING)
-    logging.getLogger(lib).propagate = False
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger("add_milvus")
-
-
-def get_openai_client() -> OpenAI:
-    """Initialize OpenAI client for embeddings."""
-    base_url = os.getenv("OPENAI_BASE_URL", "https://vllm.cloud.ai4eosc.eu/v1")
-    api_key = os.getenv("LITELLM_KEY") or os.getenv("OPENAI_API_KEY", "dummy-key")
-    import httpx
-    # We define the client to silence the INFO logs that break the progress bar
-    http_client = httpx.Client(transport=httpx.HTTPTransport(retries=3))
-    return OpenAI(base_url=base_url, api_key=api_key, http_client=http_client)
-
-
-def get_milvus_client() -> MilvusClient:
-    """Initialize Milvus client from environment variables."""
-    milvus_uri = os.getenv("MILVUS_URI", "./milvus.db")
-    milvus_pwd = os.getenv("MILVUS_PWD")
-    milvus_user = os.getenv("MILVUS_USER", "root")
-
-    if milvus_uri.startswith("http://") or milvus_uri.startswith("https://") or ":" in milvus_uri:
-        return MilvusClient(uri=milvus_uri, user=milvus_user, password=milvus_pwd)
-    return MilvusClient(uri=milvus_uri)
+logger = setup_logging("add_milvus", silence_http_libs=True)
 
 
 def parse_rfc2822_to_iso(date_str: Optional[str]) -> Optional[str]:
@@ -146,7 +122,7 @@ def format_authors_field(raw_authors: Any) -> str:
 
 def ensure_collection(milvus_client: MilvusClient, collection_name: str = COLLECTION_NAME):
     """Ensure the Milvus collection and its schema/index exist."""
-    collection_name = re.sub(r"[^a-zA-Z0-9_]", "_", collection_name)
+    collection_name = sanitize_collection_name(collection_name)
 
     if collection_name not in milvus_client.list_collections():
         logger.info(f"Creating collection '{collection_name}' with arXiv metadata schema...")
@@ -213,33 +189,12 @@ def ensure_collection(milvus_client: MilvusClient, collection_name: str = COLLEC
         )
         logger.info(f"Collection '{collection_name}' created successfully.")
 
+    # Ensure the vector index exists (missing if created by an earlier interrupted run)
+    ensure_vector_index(milvus_client, collection_name, logger=logger)
+
     # Load collection into memory
     milvus_client.load_collection(collection_name=collection_name)
     logger.info(f"Collection '{collection_name}' loaded.")
-
-
-def get_existing_arxiv_ids(milvus_client: MilvusClient, collection_name: str, batch_size: int = 1000) -> set:
-    """Fetch all existing arxiv_id primary keys currently in the Milvus collection."""
-    logger.info(f"Scanning Milvus collection '{collection_name}' for existing papers...")
-    existing_ids = set()
-    try:
-        iterator = milvus_client.query_iterator(
-            collection_name=collection_name,
-            filter="",
-            output_fields=["arxiv_id"],
-            batch_size=batch_size,
-        )
-        while True:
-            result_batch = iterator.next()
-            if not result_batch:
-                break
-            for entry in result_batch:
-                existing_ids.add(str(entry["arxiv_id"]))
-        iterator.close()
-    except Exception as e:
-        logger.warning(f"Could not iterate existing IDs (collection might be empty or new): {e}")
-    logger.info(f"Found {len(existing_ids):,} existing papers in '{collection_name}'.")
-    return existing_ids
 
 
 def process_and_upload(
@@ -254,7 +209,7 @@ def process_and_upload(
 ):
     """Read arXiv metadata from parquet, compute embeddings, and upsert into Milvus."""
     start_time = time.time()
-    collection_name = re.sub(r"[^a-zA-Z0-9_]", "_", collection_name)
+    collection_name = sanitize_collection_name(collection_name)
 
     openai_client = get_openai_client()
     milvus_client = get_milvus_client()
@@ -262,7 +217,11 @@ def process_and_upload(
     ensure_collection(milvus_client, collection_name=collection_name)
 
     # Check for existing papers in Milvus to skip redundant embedding computations
-    existing_ids = set() if overwrite_existing else get_existing_arxiv_ids(milvus_client, collection_name)
+    existing_ids = (
+        set()
+        if overwrite_existing
+        else get_existing_ids(milvus_client, collection_name, pk_field="arxiv_id", logger=logger)
+    )
 
     # Build SQL query with DuckDB
     con = duckdb.connect()
