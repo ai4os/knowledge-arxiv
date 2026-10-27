@@ -33,6 +33,7 @@ from common.utils import (
     setup_logging,
     timestamp_to_iso,
     to_str_list,
+    truncate_to_max_bytes,
 )
 
 # Source-specific configuration constants
@@ -271,7 +272,13 @@ def process_and_upload(
 
             title = str(row_data["title"] or "").strip()
             abstract = str(row_data["abstract"] or "").strip()
-            domains = ", ".join(to_str_list(row_data.get("domains")))
+            domains = truncate_to_max_bytes(
+                ", ".join(to_str_list(row_data.get("domains"))),
+                2048,
+                sep=", ",
+                field_name="domains",
+                logger=logger,
+            )
             authors_text = format_authors_text(row_data.get("authors"))
             authors_field = format_authors_field(row_data.get("authors"))
             url = str(row_data.get("url") or "").strip() or f"https://hal.science/{hal_id}"

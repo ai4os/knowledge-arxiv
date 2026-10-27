@@ -58,6 +58,31 @@ def format_authors_field(raw_authors: Any) -> str:
     return ", ".join(format_author_name(a) for a in to_str_list(raw_authors)[:max_authors])
 
 
+def truncate_to_max_bytes(
+    value: str,
+    max_bytes: int,
+    sep: Optional[str] = None,
+    field_name: str = "",
+    logger: Optional[logging.Logger] = None,
+) -> str:
+    """Truncate a string to fit a Milvus VARCHAR field (max_length is in UTF-8 bytes).
+
+    When `sep` is given (e.g. ", " for comma-joined lists), the cut is made at the
+    last separator within the limit so no partial entry is left behind.
+    """
+    encoded = value.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return value
+    if logger:
+        logger.warning(
+            f"Field '{field_name}' exceeds max_length ({len(encoded)} > {max_bytes} bytes). Truncating."
+        )
+    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
+    if sep and sep in truncated:
+        truncated = truncated.rsplit(sep, 1)[0]
+    return truncated
+
+
 def setup_logging(name: str, silence_http_libs: bool = False) -> logging.Logger:
     """Configure root logging and return a named logger.
 

@@ -33,6 +33,7 @@ from common.utils import (
     setup_logging,
     timestamp_to_iso,
     to_str_list,
+    truncate_to_max_bytes,
 )
 
 # Source-specific configuration constants
@@ -256,7 +257,19 @@ def process_and_upload(
 
             title = str(row_data["title"] or "").strip()
             abstract = str(row_data["abstract"] or "").strip()
-            subjects = ", ".join(to_str_list(row_data.get("subjects")))
+            subjects = truncate_to_max_bytes(
+                ", ".join(to_str_list(row_data.get("subjects"))),
+                2048,
+                sep=", ",
+                field_name="subjects",
+                logger=logger,
+            )
+            language = truncate_to_max_bytes(
+                str(row_data.get("language") or "").strip(),
+                32,
+                field_name="language",
+                logger=logger,
+            )
             authors_text = format_authors_text(row_data.get("authors"))
             authors_field = format_authors_field(row_data.get("authors"))
             url = str(row_data.get("handle_uri") or "").strip() or f"http://hdl.handle.net/{csic_id}"
@@ -287,7 +300,7 @@ def process_and_upload(
                     "subjects": subjects,
                     "authors": authors_field,
                     "type": str(row_data.get("type") or "").strip(),
-                    "language": str(row_data.get("language") or "").strip(),
+                    "language": language,
                     "date_issued": str(row_data.get("date_issued") or "").strip(),
                     "year": year,
                     "updated": updated_iso or "",
