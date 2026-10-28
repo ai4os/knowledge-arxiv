@@ -4,11 +4,12 @@ Registers the MCP servers (one per knowledge source) in LiteLLM.
 Usage:
     python common/litellm_mcp_register.py                      # register all servers
     python common/litellm_mcp_register.py --server arxiv_metadata
-    python common/litellm_mcp_register.py --server digital_csic
+    python common/litellm_mcp_register.py --server csic_metadata
 """
 
 import argparse
 import os
+import json
 
 from dotenv import load_dotenv
 import requests
@@ -23,14 +24,14 @@ SERVERS = {
         "description": "MCP server to perform RAG on the full arXiv metadata.",
         "url": "https://mcp-arxiv-metadata.ifca-deployments.cloud.ai4eosc.eu/mcp",
     },
-    "digital_csic": {
-        "name": "digital_csic",
+    "csic_metadata": {
+        "name": "csic_metadata",
         "description": "MCP server to perform RAG on the DIGITAL.CSIC metadata.",
-        "url": "https://mcp-digital-csic.ifca-deployments.cloud.ai4eosc.eu/mcp",
+        "url": "https://mcp-csic-metadata.ifca-deployments.cloud.ai4eosc.eu/mcp",
     },
-    "hal": {
-        "name": "hal",
-        "description": "MCP server to perform RAG on the HAL metadata.",
+    "hal_metadata": {
+        "name": "hal_metadata",
+        "description": "MCP server to perform RAG on the Archive Ouverte HAL metadata.",
         "url": "https://mcp-hal-metadata.ifca-deployments.cloud.ai4eosc.eu/mcp",
     },
 }
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    litellm_key = os.environ["LITELLM_KEY"]
+    litellm_key = os.environ["LITELLM_REGISTRATION_KEY"]
     mcp_auth = os.environ["MCP_AUTH"]
 
     headers = {

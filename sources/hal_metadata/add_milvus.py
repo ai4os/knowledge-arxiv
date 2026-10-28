@@ -1,6 +1,6 @@
 """
 Upload HAL metadata snapshot dataset to Milvus.
-Adapted from sources/digital_csic/add_milvus.py to the HAL schema
+Adapted from sources/csic_metadata/add_milvus.py to the HAL schema
 (HAL `id` as primary key; no dedup preprocessing needed since IDs are unique).
 """
 

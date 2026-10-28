@@ -7,8 +7,8 @@ Supported knowledge sources live under `sources/<source>/`:
 | Source | Description | Milvus collection |
 |---|---|---|
 | [`arxiv_metadata`](sources/arxiv_metadata/) | Full [arXiv metadata snapshot](https://huggingface.co/datasets/librarian-bots/arxiv-metadata-snapshot) | `arxiv_metadata_v2` |
-| [`digital_csic`](sources/digital_csic/) | [DIGITAL.CSIC metadata snapshot](https://huggingface.co/datasets/ifca-advanced-computing/DIGITAL.CSIC-metadata-snapshot) | `digital_csic_metadata_v1` |
-| [`hal`](sources/hal/) | [HAL metadata snapshot](https://huggingface.co/datasets/ifca-advanced-computing/HAL-metadata-snapshot) | `hal_metadata_v1` |
+| [`csic_metadata`](sources/csic_metadata/) | [DIGITAL.CSIC metadata snapshot](https://huggingface.co/datasets/ifca-advanced-computing/DIGITAL.CSIC-metadata-snapshot) | `digital_csic_metadata_v1` |
+| [`hal_metadata`](sources/hal_metadata/) | [HAL metadata snapshot](https://huggingface.co/datasets/ifca-advanced-computing/HAL-metadata-snapshot) | `hal_metadata_v1` |
 
 Shared code lives in [`common/`](common/):
 
@@ -69,17 +69,17 @@ You can configure filters in `sources/arxiv_metadata/add_milvus.py` (e.g. `CATEG
 
 The DIGITAL.CSIC snapshot has unique IDs, so no postprocessing is needed — ingest directly:
 ```bash
-python sources/digital_csic/add_milvus.py
+python sources/csic_metadata/add_milvus.py
 ```
-You can configure filters in `sources/digital_csic/add_milvus.py` (e.g. `SUBJECT_FILTER`, `TYPE_FILTER`, `START_YEAR`, `END_YEAR`, `LIMIT`).
+You can configure filters in `sources/csic_metadata/add_milvus.py` (e.g. `SUBJECT_FILTER`, `TYPE_FILTER`, `START_YEAR`, `END_YEAR`, `LIMIT`).
 
 #### HAL metadata
 
 The HAL snapshot has unique IDs, so no postprocessing is needed — ingest directly:
 ```bash
-python sources/hal/add_milvus.py
+python sources/hal_metadata/add_milvus.py
 ```
-You can configure filters in `sources/hal/add_milvus.py` (e.g. `DOMAIN_FILTER`, `TYPE_FILTER` — short type like `"article"`, `START_YEAR`, `END_YEAR`, `LIMIT`).
+You can configure filters in `sources/hal_metadata/add_milvus.py` (e.g. `DOMAIN_FILTER`, `TYPE_FILTER` — short type like `"article"`, `START_YEAR`, `END_YEAR`, `LIMIT`).
 
 ### 3. Run an MCP Server to expose the collection
 
@@ -97,8 +97,8 @@ To test a local MCP server (requires the collection to be ingested already):
 
 ```bash
 python sources/arxiv_metadata/test_mcp_local.py
-python sources/digital_csic/test_mcp_local.py
-python sources/hal/test_mcp_local.py
+python sources/csic_metadata/test_mcp_local.py
+python sources/hal_metadata/test_mcp_local.py
 ```
 
 ### 4. Register the MCP servers in LiteLLM
@@ -111,8 +111,8 @@ python common/litellm_mcp_register.py
 
 # Or register a single one
 python common/litellm_mcp_register.py --server arxiv_metadata
-python common/litellm_mcp_register.py --server digital_csic
-python common/litellm_mcp_register.py --server hal
+python common/litellm_mcp_register.py --server csic_metadata
+python common/litellm_mcp_register.py --server hal_metadata
 ```
 
 
